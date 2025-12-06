@@ -1,0 +1,206 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USUARIOS Y AUTENTICACIÓN
+// ============================================
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String   // Hash del password
+  role      UserRole @default(USER)
+  
+  // Información del perfil
+  firstName String
+  lastName  String
+  phone     String?
+  bio       String?  @db.Text
+  avatar    String?  // URL de la foto de perfil
+  
+  // Verificación (para futuro)
+  isVerified Boolean @default(false)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime? // Soft delete
+  
+  // Relaciones
+  properties Property[]
+  reviews    Review[]
+  favorites  Favorite[]
+  
+  @@map("users")
+}
+
+// ============================================
+// PROPIEDADES/INMUEBLES
+// ============================================
+
+enum PropertyType {
+  HOUSE           // Casa
+  APARTMENT       // Departamento
+  LAND            // Terreno
+  OFFICE          // Oficina
+  COMMERCIAL      // Local comercial
+  WAREHOUSE       // Almacén/Depósito
+  ROOM            // Habitación
+  OTHER           // Otro
+}
+
+enum OperationType {
+  SALE            // Venta
+  RENT_TEMPORARY  // Alquiler temporal
+  RENT_PERMANENT  // Alquiler permanente
+  ANTICRETICO     // Anticretico
+}
+
+enum PropertyStatus {
+  AVAILABLE       // Disponible
+  RESERVED        // Reservado
+  SOLD            // Vendido
+  RENTED          // Alquilado
+  INACTIVE        // Inactivo
+}
+
+model Property {
+  id          String   @id @default(uuid())
+  
+  // Información básica
+  title       String
+  description String   @db.Text
+  price       Decimal  @db.Decimal(12, 2)
+  
+  // Tipo y operación
+  propertyType   PropertyType
+  operationType  OperationType
+  status         PropertyStatus @default(AVAILABLE)
+  
+  // Ubicación
+  latitude    Decimal  @db.Decimal(10, 8)
+  longitude   Decimal  @db.Decimal(11, 8)
+  address     String
+  city        String
+  state       String?
+  country     String   @default("Bolivia")
+  
+  // Características
+  bedrooms    Int?
+  bathrooms   Int?
+  area        Decimal? @db.Decimal(10, 2) // Metros cuadrados
+  parking     Int?     @default(0)
+  floor       Int?     // Piso (para departamentos)
+  
+  // Amenidades (opcional, se puede extender)
+  amenities   String[] // Array de strings: ["wifi", "piscina", "gym"]
+  
+  // Contacto del propietario
+  contactPhone    String
+  contactEmail    String?
+  contactWhatsApp String?
+  
+  // Propietario
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  
+  // Timestamps
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // Soft delete
+  
+  // Relaciones
+  images    PropertyImage[]
+  reviews   Review[]
+  favorites Favorite[]
+  
+  @@index([latitude, longitude]) // Índice para búsquedas geográficas
+  @@index([propertyType])
+  @@index([operationType])
+  @@index([status])
+  @@index([ownerId])
+  @@map("properties")
+}
+
+// ============================================
+// IMÁGENES DE PROPIEDADES
+// ============================================
+
+model PropertyImage {
+  id         String   @id @default(uuid())
+  url        String   // Ruta o URL de la imagen
+  order      Int      // Orden en el carrusel (1-10)
+  
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  
+  createdAt  DateTime @default(now())
+  
+  @@unique([propertyId, order]) // No puede haber dos imágenes con el mismo orden
+  @@index([propertyId])
+  @@map("property_images")
+}
+
+// ============================================
+// RESEÑAS
+// ============================================
+
+model Review {
+  id      String @id @default(uuid())
+  
+  // Calificación y comentario
+  rating  Int    // 1-5 estrellas
+  comment String @db.Text
+  
+  // Relaciones
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Timestamps
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // Soft delete
+  
+  @@unique([propertyId, userId]) // Un usuario solo puede reseñar una propiedad una vez
+  @@index([propertyId])
+  @@index([userId])
+  @@map("reviews")
+}
+
+// ============================================
+// FAVORITOS
+// ============================================
+
+model Favorite {
+  id String @id @default(uuid())
+  
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  
+  @@unique([userId, propertyId]) // Un usuario no puede guardar la misma propiedad dos veces
+  @@index([userId])
+  @@index([propertyId])
+  @@map("favorites")
+}

@@ -1,0 +1,323 @@
+{
+  "info": {
+    "name": "API Homi - Real Estate",
+    "description": "Colección completa de endpoints para la API de gestión de inmuebles",
+    "version": "1.0.0"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Registro de Usuario",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/api/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"juan@example.com\",\n  \"password\": \"securepass123\",\n  \"firstName\": \"Juan\",\n  \"lastName\": \"Pérez\",\n  \"phone\": \"+591-12345678\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"juan@example.com\",\n  \"password\": \"securepass123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Obtener Perfil",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/auth/profile",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "profile"]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Properties",
+      "item": [
+        {
+          "name": "Listar Propiedades",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/properties?page=1&limit=10&city=Santa%20Cruz",
+              "host": ["{{base_url}}"],
+              "path": ["api", "properties"],
+              "query": [
+                {"key": "page", "value": "1"},
+                {"key": "limit", "value": "10"},
+                {"key": "city", "value": "Santa Cruz"}
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Crear Propiedad",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/api/properties",
+              "host": ["{{base_url}}"],
+              "path": ["api", "properties"]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Casa de Lujo en Santa Cruz\",\n  \"description\": \"Hermosa casa con vista a la ciudad\",\n  \"price\": 250000,\n  \"propertyType\": \"HOUSE\",\n  \"operationType\": \"SALE\",\n  \"latitude\": -17.5,\n  \"longitude\": -63.2,\n  \"address\": \"Calle Principal 123\",\n  \"city\": \"Santa Cruz\",\n  \"bedrooms\": 4,\n  \"bathrooms\": 3,\n  \"area\": 350,\n  \"parking\": 2,\n  \"amenities\": [\"wifi\", \"piscina\", \"gym\"],\n  \"contactPhone\": \"+591-12345678\",\n  \"contactEmail\": \"owner@example.com\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Obtener Propiedad por ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/properties/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "properties", ":id"]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Búsqueda Geográfica",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/properties/nearby?latitude=-17.5&longitude=-63.2&radius=5",
+              "host": ["{{base_url}}"],
+              "path": ["api", "properties", "nearby"],
+              "query": [
+                {"key": "latitude", "value": "-17.5"},
+                {"key": "longitude", "value": "-63.2"},
+                {"key": "radius", "value": "5"}
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Propiedades para Mapa",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/properties/map?latitude=-17.5&longitude=-63.2&radius=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "properties", "map"],
+              "query": [
+                {"key": "latitude", "value": "-17.5"},
+                {"key": "longitude", "value": "-63.2"},
+                {"key": "radius", "value": "10"}
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reviews",
+      "item": [
+        {
+          "name": "Crear Reseña",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/api/reviews/property/:propertyId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reviews", "property", ":propertyId"]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 5,\n  \"comment\": \"Excelente propiedad, muy bien ubicada\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Listar Reseñas de Propiedad",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/reviews/property/:propertyId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reviews", "property", ":propertyId"]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Favorites",
+      "item": [
+        {
+          "name": "Agregar a Favoritos",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/api/favorites/property/:propertyId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "favorites", "property", ":propertyId"]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Mis Favoritos",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/favorites",
+              "host": ["{{base_url}}"],
+              "path": ["api", "favorites"]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Obtener Perfil Público",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/users/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", ":id"]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Propiedades del Usuario",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/users/:id/properties",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", ":id", "properties"]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
