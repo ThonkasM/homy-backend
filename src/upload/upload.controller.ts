@@ -7,6 +7,7 @@ import {
     HttpCode,
     HttpStatus,
     BadRequestException,
+    Logger,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UploadService } from './upload.service';
@@ -16,6 +17,8 @@ import { PrismaService } from '../prisma/prisma.service';
 
 @Controller('api/upload')
 export class UploadController {
+    private readonly logger = new Logger('UploadController');
+
     constructor(
         private readonly uploadService: UploadService,
         private readonly prisma: PrismaService,
@@ -34,13 +37,19 @@ export class UploadController {
         @UploadedFile() file: Express.Multer.File,
         @CurrentUser() user: any,
     ) {
+        this.logger.log(`Iniciando upload de avatar para usuario: ${user.sub}`);
+
         if (!file) {
+            this.logger.error('No se proporcionó archivo');
             throw new BadRequestException('No se proporcionó archivo');
         }
+
+        this.logger.log(`Archivo recibido: ${file.originalname}, size: ${file.size}, mimetype: ${file.mimetype}`);
 
         try {
             // Guardar avatar (comprimido a 200x200)
             const avatarUrl = await this.uploadService.saveUserAvatar(file, user.sub);
+            this.logger.log(`Avatar guardado en: ${avatarUrl}`);
 
             // Actualizar usuario con nueva URL de avatar
             const updatedUser = await this.prisma.user.update({
@@ -56,12 +65,15 @@ export class UploadController {
                 },
             });
 
+            this.logger.log(`Avatar actualizado exitosamente para usuario: ${user.sub}`);
+
             return {
                 message: 'Avatar actualizado exitosamente',
                 avatarUrl,
                 user: updatedUser,
             };
         } catch (error) {
+            this.logger.error(`Error al subir avatar: ${error.message}`, error.stack);
             throw new BadRequestException(error.message);
         }
     }
@@ -73,9 +85,13 @@ export class UploadController {
     @Post('test')
     @UseInterceptors(FileInterceptor('file'))
     async testUpload(@UploadedFile() file: Express.Multer.File) {
+        this.logger.log('Test de upload recibido');
+
         if (!file) {
             throw new BadRequestException('No se proporcionó archivo');
         }
+
+        this.logger.log(`Test file: ${file.originalname}, mimetype: ${file.mimetype}, size: ${file.size}`);
 
         return {
             message: 'Archivo recibido correctamente',

@@ -22,10 +22,10 @@ async function bootstrap() {
   });
 
   const port = process.env.PORT ?? 3000;
-  await app.listen(port);
+   await app.listen(port);
 
   console.log(`✅ Servidor ejecutándose en puerto ${port}`);
-  console.log(`📁 Archivos estáticos disponibles en /uploads`);
   console.log(`🔗 API disponible en http://localhost:${port}`);
+  console.log(`📁 Archivos estáticos disponibles en /uploads`);
 }
 bootstrap();
