@@ -6,6 +6,7 @@ export class PropertyResponseDto {
     propertyType: string;
     operationType: string;
     status: string;
+    postStatus: string;
     latitude: number;
     longitude: number;
     address: string;

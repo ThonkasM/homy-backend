@@ -27,6 +27,12 @@ enum PropertyStatus {
     INACTIVE = 'INACTIVE',
 }
 
+enum PostStatus {
+    DRAFT = 'DRAFT',
+    PUBLISHED = 'PUBLISHED',
+    ARCHIVED = 'ARCHIVED',
+}
+
 export class FilterPropertyDto {
     @IsEnum(PropertyType)
     @IsOptional()
@@ -39,6 +45,10 @@ export class FilterPropertyDto {
     @IsEnum(PropertyStatus)
     @IsOptional()
     status?: PropertyStatus;
+
+    @IsEnum(PostStatus)
+    @IsOptional()
+    postStatus?: PostStatus;
 
     @IsNumber()
     @IsOptional()

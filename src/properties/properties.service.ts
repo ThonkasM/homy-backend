@@ -9,6 +9,7 @@ import { CreatePropertyDto } from './dto/create-property.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
 import { FilterPropertyDto } from './dto/filter-property.dto';
 import { UploadService } from '../upload/upload.service';
+import { validateSpecifications, validateAmenities } from './config/property-types.config';
 
 @Injectable()
 export class PropertiesService {
@@ -18,13 +19,75 @@ export class PropertiesService {
     ) { }
 
     /**
+     * MÉTODO AUXILIAR: Convertir datos legacy a specifications
+     * Esto permite que propiedades antiguas que usan bedrooms, bathrooms, etc.
+     * se conviertan automáticamente a specifications cuando se leen
+     */
+    private normalizePropertyData(property: any) {
+        // Si ya tiene specifications con contenido, retorna como está
+        if (property.specifications && Object.keys(property.specifications).length > 0) {
+            return property;
+        }
+
+        // Si tiene campos legacy (bedrooms, bathrooms, etc.), convertir a specifications
+        const specifications: any = {};
+        if (property.bedrooms !== null) specifications.bedrooms = property.bedrooms;
+        if (property.bathrooms !== null) specifications.bathrooms = property.bathrooms;
+        if (property.area !== null) specifications.area = property.area;
+        if (property.parking !== null) specifications.parking = property.parking;
+        if (property.floor !== null) specifications.floor = property.floor;
+
+        // Solo actualizar si hay algo que convertir
+        if (Object.keys(specifications).length > 0) {
+            property.specifications = specifications;
+        }
+
+        return property;
+    }
+
+    /**
+     * MÉTODO AUXILIAR: Validar y normalizar datos de entrada
+     * Soporta AMBOS formatos:
+     * - Nuevo: specifications + amenities validadas
+     * - Legacy: bedrooms, bathrooms, area, parking, floor (sin validar, para compatibilidad)
+     */
+    private validatePropertyInput(
+        propertyType: string,
+        createPropertyDto: any,
+    ): { valid: boolean; errors: string[] } {
+        const errors: string[] = [];
+
+        // Si envía specifications, validar contra config
+        if (createPropertyDto.specifications && Object.keys(createPropertyDto.specifications).length > 0) {
+            const specValidation = validateSpecifications(propertyType, createPropertyDto.specifications);
+            if (!specValidation.valid) {
+                errors.push(...specValidation.errors);
+            }
+        }
+
+        // Si envía amenities, validar contra config
+        if (createPropertyDto.amenities && createPropertyDto.amenities.length > 0) {
+            const amenitiesValidation = validateAmenities(propertyType, createPropertyDto.amenities);
+            if (!amenitiesValidation.valid) {
+                errors.push(...amenitiesValidation.errors);
+            }
+        }
+
+        return { valid: errors.length === 0, errors };
+    }
+
+    /**
      * Crear una nueva propiedad
+     * Soporta AMBOS formatos:
+     * - Nuevo: specifications + amenities validadas
+     * - Legacy: bedrooms, bathrooms, area, parking, floor (para compatibilidad)
      */
     async create(createPropertyDto: CreatePropertyDto, userId: string) {
         const {
             title,
             description,
             price,
+            currency = 'BOB',
             propertyType,
             operationType,
             latitude,
@@ -33,22 +96,32 @@ export class PropertiesService {
             city,
             state,
             country,
-            bedrooms,
-            bathrooms,
-            area,
-            parking,
-            floor,
-            amenities,
+            specifications = {},
+            amenities = [],
             contactPhone,
             contactEmail,
             contactWhatsApp,
         } = createPropertyDto;
+
+        // Validar si se envían specifications
+        if (specifications && Object.keys(specifications).length > 0) {
+            const validation = this.validatePropertyInput(propertyType, {
+                specifications,
+                amenities,
+            });
+            if (!validation.valid) {
+                throw new BadRequestException(
+                    `Validación fallida: ${validation.errors.join(', ')}`,
+                );
+            }
+        }
 
         const property = await this.prisma.property.create({
             data: {
                 title,
                 description,
                 price,
+                currency,
                 propertyType,
                 operationType,
                 latitude,
@@ -57,11 +130,7 @@ export class PropertiesService {
                 city,
                 state: state || null,
                 country: country || 'Bolivia',
-                bedrooms: bedrooms || null,
-                bathrooms: bathrooms || null,
-                area: area || null,
-                parking: parking || 0,
-                floor: floor || null,
+                specifications: specifications || {},
                 amenities: amenities || [],
                 contactPhone,
                 contactEmail: contactEmail || null,
@@ -82,17 +151,20 @@ export class PropertiesService {
             },
         });
 
-        return property;
+        // Normalizar respuesta (convertir legacy a specifications si es necesario)
+        return this.normalizePropertyData(property);
     }
 
     /**
      * Obtener todas las propiedades (con filtros opcionales)
+     * Solo devuelve propiedades PUBLICADAS
      */
     async findAll(filters?: FilterPropertyDto, page = 1, limit = 10) {
         const skip = (page - 1) * limit;
 
         const where: any = {
             deletedAt: null,
+            postStatus: 'PUBLISHED', // Solo mostrar propiedades publicadas
         };
 
         // Aplicar filtros
@@ -134,8 +206,11 @@ export class PropertiesService {
             this.prisma.property.count({ where }),
         ]);
 
+        // Normalizar todas las propiedades (convertir legacy a specifications si es necesario)
+        const normalizedProperties = properties.map((prop) => this.normalizePropertyData(prop));
+
         return {
-            properties,
+            properties: normalizedProperties,
             pagination: {
                 total,
                 page,
@@ -184,11 +259,13 @@ export class PropertiesService {
             throw new NotFoundException('Propiedad no encontrada');
         }
 
-        return property;
+        // Normalizar respuesta (convertir legacy a specifications si es necesario)
+        return this.normalizePropertyData(property);
     }
 
     /**
      * Actualizar una propiedad
+     * Soporta AMBOS formatos (legacy + nuevo)
      */
     async update(id: string, updatePropertyDto: UpdatePropertyDto, userId: string) {
         // Verificar que la propiedad existe y pertenece al usuario
@@ -202,6 +279,19 @@ export class PropertiesService {
 
         if (property.ownerId !== userId) {
             throw new ForbiddenException('No tienes permisos para actualizar esta propiedad');
+        }
+
+        // Validar si se envían specifications nuevas
+        if (updatePropertyDto.specifications && Object.keys(updatePropertyDto.specifications).length > 0) {
+            const validation = this.validatePropertyInput(property.propertyType, {
+                specifications: updatePropertyDto.specifications,
+                amenities: updatePropertyDto.amenities,
+            });
+            if (!validation.valid) {
+                throw new BadRequestException(
+                    `Validación fallida: ${validation.errors.join(', ')}`,
+                );
+            }
         }
 
         const updatedProperty = await this.prisma.property.update({
@@ -220,7 +310,8 @@ export class PropertiesService {
             },
         });
 
-        return updatedProperty;
+        // Normalizar respuesta
+        return this.normalizePropertyData(updatedProperty);
     }
 
     /**
@@ -250,6 +341,7 @@ export class PropertiesService {
     /**
      * Buscar propiedades por ubicación (usando radio en km)
      * Usa fórmula de Haversine para calcular distancia
+     * Solo devuelve propiedades PUBLICADAS
      */
     async searchByLocation(latitude: number, longitude: number, radiusKm: number = 50) {
         // Convertir radio a grados (aproximadamente)
@@ -258,6 +350,7 @@ export class PropertiesService {
         const properties = await this.prisma.property.findMany({
             where: {
                 deletedAt: null,
+                postStatus: 'PUBLISHED', // Solo mostrar propiedades publicadas
                 latitude: {
                     gte: latitude - radiusInDegrees,
                     lte: latitude + radiusInDegrees,
@@ -291,7 +384,8 @@ export class PropertiesService {
             return distance <= radiusKm;
         });
 
-        return filtered;
+        // Normalizar propiedades
+        return filtered.map((prop) => this.normalizePropertyData(prop));
     }
 
     /**
@@ -321,8 +415,11 @@ export class PropertiesService {
             }),
         ]);
 
+        // Normalizar propiedades
+        const normalizedProperties = properties.map((prop) => this.normalizePropertyData(prop));
+
         return {
-            properties,
+            properties: normalizedProperties,
             pagination: {
                 total,
                 page,
@@ -356,6 +453,7 @@ export class PropertiesService {
     /**
      * Crear una propiedad con imágenes en un solo paso
      * Recibe la propiedad + archivos de imagen y los guarda juntos
+     * Valida specifications y amenities dinámicas
      */
     async createWithImages(
         createPropertyDto: CreatePropertyDto,
@@ -366,6 +464,7 @@ export class PropertiesService {
             title,
             description,
             price,
+            currency = 'BOB',
             propertyType,
             operationType,
             latitude,
@@ -374,16 +473,32 @@ export class PropertiesService {
             city,
             state,
             country,
-            bedrooms,
-            bathrooms,
-            area,
-            parking,
-            floor,
-            amenities,
+            specifications = {},
+            amenities = [],
             contactPhone,
             contactEmail,
             contactWhatsApp,
         } = createPropertyDto;
+
+        // Validar specifications dinámicas
+        if (specifications && Object.keys(specifications).length > 0) {
+            const specValidation = validateSpecifications(propertyType, specifications);
+            if (!specValidation.valid) {
+                throw new BadRequestException(
+                    `Validación de specifications fallida: ${specValidation.errors.join(', ')}`,
+                );
+            }
+        }
+
+        // Validar amenities
+        if (amenities && amenities.length > 0) {
+            const amenitiesValidation = validateAmenities(propertyType, amenities);
+            if (!amenitiesValidation.valid) {
+                throw new BadRequestException(
+                    `Validación de amenities fallida: ${amenitiesValidation.errors.join(', ')}`,
+                );
+            }
+        }
 
         // Crear la propiedad sin imágenes primero
         const property = await this.prisma.property.create({
@@ -391,6 +506,7 @@ export class PropertiesService {
                 title,
                 description,
                 price,
+                currency,
                 propertyType,
                 operationType,
                 latitude,
@@ -399,11 +515,7 @@ export class PropertiesService {
                 city,
                 state: state || null,
                 country: country || 'Bolivia',
-                bedrooms: bedrooms || null,
-                bathrooms: bathrooms || null,
-                area: area || null,
-                parking: parking || 0,
-                floor: floor || null,
+                specifications: specifications || {},
                 amenities: amenities || [],
                 contactPhone,
                 contactEmail: contactEmail || null,
@@ -455,6 +567,92 @@ export class PropertiesService {
         return {
             ...property,
             images: [],
+        };
+    }
+
+    /**
+     * Publicar una propiedad (cambiar postStatus a PUBLISHED)
+     */
+    async publishProperty(id: string, userId: string) {
+        const property = await this.prisma.property.findUnique({
+            where: { id },
+        });
+
+        if (!property) {
+            throw new NotFoundException('Propiedad no encontrada');
+        }
+
+        if (property.ownerId !== userId) {
+            throw new ForbiddenException('No tienes permisos para publicar esta propiedad');
+        }
+
+        if (property.postStatus === 'PUBLISHED') {
+            throw new BadRequestException('Esta propiedad ya está publicada');
+        }
+
+        const updated = await this.prisma.property.update({
+            where: { id },
+            data: { postStatus: 'PUBLISHED' },
+            include: {
+                images: true,
+                owner: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        avatar: true,
+                    },
+                },
+            },
+        });
+
+        return {
+            success: true,
+            message: 'Propiedad publicada exitosamente',
+            property: updated,
+        };
+    }
+
+    /**
+     * Archivar una propiedad (cambiar postStatus a ARCHIVED)
+     */
+    async archiveProperty(id: string, userId: string) {
+        const property = await this.prisma.property.findUnique({
+            where: { id },
+        });
+
+        if (!property) {
+            throw new NotFoundException('Propiedad no encontrada');
+        }
+
+        if (property.ownerId !== userId) {
+            throw new ForbiddenException('No tienes permisos para archivar esta propiedad');
+        }
+
+        if (property.postStatus === 'ARCHIVED') {
+            throw new BadRequestException('Esta propiedad ya está archivada');
+        }
+
+        const updated = await this.prisma.property.update({
+            where: { id },
+            data: { postStatus: 'ARCHIVED' },
+            include: {
+                images: true,
+                owner: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        avatar: true,
+                    },
+                },
+            },
+        });
+
+        return {
+            success: true,
+            message: 'Propiedad archivada exitosamente',
+            property: updated,
         };
     }
 }

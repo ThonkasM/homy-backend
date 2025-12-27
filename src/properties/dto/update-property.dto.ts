@@ -1,5 +1,5 @@
-import { IsString, IsNumber, IsOptional, IsArray, IsEnum } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsString, IsNumber, IsOptional, IsArray, IsEnum, IsObject } from 'class-validator';
+import { Type, Transform } from 'class-transformer';
 
 enum PropertyType {
     HOUSE = 'HOUSE',
@@ -27,6 +27,22 @@ enum PropertyStatus {
     INACTIVE = 'INACTIVE',
 }
 
+enum PostStatus {
+    DRAFT = 'DRAFT',
+    PUBLISHED = 'PUBLISHED',
+    ARCHIVED = 'ARCHIVED',
+}
+
+enum Currency {
+    BOB = 'BOB',
+    USD = 'USD',
+    ARS = 'ARS',
+    PEN = 'PEN',
+    CLP = 'CLP',
+    MXN = 'MXN',
+    COP = 'COP',
+}
+
 export class UpdatePropertyDto {
     @IsString()
     @IsOptional()
@@ -40,6 +56,10 @@ export class UpdatePropertyDto {
     @IsOptional()
     @Type(() => Number)
     price?: number;
+
+    @IsEnum(Currency)
+    @IsOptional()
+    currency?: Currency;
 
     @IsEnum(PropertyType)
     @IsOptional()
@@ -73,10 +93,6 @@ export class UpdatePropertyDto {
     @Type(() => Number)
     parking?: number;
 
-    @IsArray()
-    @IsOptional()
-    amenities?: string[];
-
     @IsString()
     @IsOptional()
     contactPhone?: string;
@@ -88,4 +104,38 @@ export class UpdatePropertyDto {
     @IsString()
     @IsOptional()
     contactWhatsApp?: string;
+
+    @IsObject()
+    @IsOptional()
+    @Transform(({ value }) => {
+        // Si viene como string JSON (desde FormData), parsearlo
+        if (typeof value === 'string') {
+            try {
+                return JSON.parse(value);
+            } catch {
+                return {};
+            }
+        }
+        return value || {};
+    })
+    specifications?: Record<string, any>; // Dinámicas por PropertyType
+
+    @IsArray()
+    @IsOptional()
+    @Transform(({ value }) => {
+        // Si viene como string JSON (desde FormData), parsearlo
+        if (typeof value === 'string') {
+            try {
+                return JSON.parse(value);
+            } catch {
+                return [];
+            }
+        }
+        return value || [];
+    })
+    amenities?: string[]; // IDs validados por PropertyType
+
+    @IsEnum(PostStatus)
+    @IsOptional()
+    postStatus?: PostStatus;
 }

@@ -23,6 +23,7 @@ import { UpdatePropertyDto } from './dto/update-property.dto';
 import { FilterPropertyDto } from './dto/filter-property.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { PROPERTY_TYPES_CONFIG } from './config/property-types.config';
 
 @Controller('api/properties')
 export class PropertiesController {
@@ -72,6 +73,23 @@ export class PropertiesController {
             user.sub,
             files,
         );
+    }
+
+    /**
+     * GET /api/properties/config/:propertyType
+     * Obtener configuración de campos y amenidades para un PropertyType
+     * Usado por frontend para generar formularios dinámicos
+     */
+    @Get('config/:propertyType')
+    async getPropertyTypeConfig(@Param('propertyType') propertyType: string) {
+        const config = PROPERTY_TYPES_CONFIG[propertyType];
+        if (!config) {
+            throw new Error(`PropertyType inválido: ${propertyType}`);
+        }
+        return {
+            success: true,
+            data: config,
+        };
     }
 
     /**
@@ -158,5 +176,33 @@ export class PropertiesController {
     @HttpCode(HttpStatus.OK)
     async remove(@Param('id') id: string, @CurrentUser() user: any) {
         return await this.propertiesService.remove(id, user.sub);
+    }
+
+    /**
+     * PATCH /api/properties/:id/publish
+     * Publicar una propiedad (cambiar postStatus a PUBLISHED)
+     */
+    @Patch(':id/publish')
+    @UseGuards(JwtAuthGuard)
+    @HttpCode(HttpStatus.OK)
+    async publishProperty(
+        @Param('id') id: string,
+        @CurrentUser() user: any,
+    ) {
+        return await this.propertiesService.publishProperty(id, user.sub);
+    }
+
+    /**
+     * PATCH /api/properties/:id/archive
+     * Archivar una propiedad (cambiar postStatus a ARCHIVED)
+     */
+    @Patch(':id/archive')
+    @UseGuards(JwtAuthGuard)
+    @HttpCode(HttpStatus.OK)
+    async archiveProperty(
+        @Param('id') id: string,
+        @CurrentUser() user: any,
+    ) {
+        return await this.propertiesService.archiveProperty(id, user.sub);
     }
 }

@@ -1,5 +1,5 @@
-import { IsString, IsNumber, IsOptional, IsArray, IsEnum, IsPositive, Min, Max } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsString, IsNumber, IsOptional, IsArray, IsEnum, IsPositive, Min, Max, IsObject } from 'class-validator';
+import { Type, Transform } from 'class-transformer';
 
 enum PropertyType {
     HOUSE = 'HOUSE',
@@ -19,6 +19,22 @@ enum OperationType {
     ANTICRETICO = 'ANTICRETICO',
 }
 
+enum PostStatus {
+    DRAFT = 'DRAFT',
+    PUBLISHED = 'PUBLISHED',
+    ARCHIVED = 'ARCHIVED',
+}
+
+enum Currency {
+    BOB = 'BOB',
+    USD = 'USD',
+    ARS = 'ARS',
+    PEN = 'PEN',
+    CLP = 'CLP',
+    MXN = 'MXN',
+    COP = 'COP',
+}
+
 /**
  * DTO para crear propiedad con imágenes en un solo formulario multipart/form-data
  * Las imágenes se envían como archivos (en files)
@@ -34,6 +50,10 @@ export class CreatePropertyWithImagesDto {
     @IsPositive()
     @Type(() => Number)
     price: number;
+
+    @IsEnum(Currency)
+    @IsOptional()
+    currency?: Currency = Currency.BOB;
 
     @IsEnum(PropertyType)
     propertyType: PropertyType;
@@ -84,13 +104,9 @@ export class CreatePropertyWithImagesDto {
     parking?: number;
 
     @IsNumber()
-    @IsOptional()
+    @IsNumber()
     @Type(() => Number)
     floor?: number;
-
-    @IsArray()
-    @IsOptional()
-    amenities?: string[];
 
     @IsString()
     contactPhone: string;
@@ -102,6 +118,40 @@ export class CreatePropertyWithImagesDto {
     @IsString()
     @IsOptional()
     contactWhatsApp?: string;
+
+    @IsObject()
+    @IsOptional()
+    @Transform(({ value }) => {
+        // Si viene como string JSON (desde FormData), parsearlo
+        if (typeof value === 'string') {
+            try {
+                return JSON.parse(value);
+            } catch {
+                return {};
+            }
+        }
+        return value || {};
+    })
+    specifications?: Record<string, any>; // Dinámicas por PropertyType
+
+    @IsArray()
+    @IsOptional()
+    @Transform(({ value }) => {
+        // Si viene como string JSON (desde FormData), parsearlo
+        if (typeof value === 'string') {
+            try {
+                return JSON.parse(value);
+            } catch {
+                return [];
+            }
+        }
+        return value || [];
+    })
+    amenities?: string[]; // IDs validados por PropertyType
+
+    @IsEnum(PostStatus)
+    @IsOptional()
+    postStatus?: PostStatus;
 
     // Los archivos se reciben como Express.Multer.File[]
     // No necesita validación aquí, se maneja en el controller

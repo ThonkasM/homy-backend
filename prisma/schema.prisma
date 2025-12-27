@@ -78,6 +78,22 @@ enum PropertyStatus {
   INACTIVE        // Inactivo
 }
 
+enum PostStatus {
+  DRAFT           // Borrador (no visible públicamente)
+  PUBLISHED       // Publicado (visible públicamente)
+  ARCHIVED        // Archivado por el usuario
+}
+
+enum Currency {
+  BOB             // Bolivianos
+  USD             // Dólares estadounidenses
+  ARS             // Pesos argentinos
+  PEN             // Soles peruanos
+  CLP             // Pesos chilenos
+  MXN             // Pesos mexicanos
+  COP             // Pesos colombianos
+}
+
 model Property {
   id          String   @id @default(uuid())
   
@@ -85,11 +101,13 @@ model Property {
   title       String
   description String   @db.Text
   price       Decimal  @db.Decimal(12, 2)
+  currency    Currency @default(BOB)
   
   // Tipo y operación
   propertyType   PropertyType
   operationType  OperationType
   status         PropertyStatus @default(AVAILABLE)
+  postStatus     PostStatus     @default(DRAFT)
   
   // Ubicación
   latitude    Decimal  @db.Decimal(10, 8)
@@ -99,15 +117,24 @@ model Property {
   state       String?
   country     String   @default("Bolivia")
   
-  // Características
+  // Características LEGACY (mantener para compatibilidad con datos antiguos)
+  // Deprecado: usar specifications en su lugar
   bedrooms    Int?
   bathrooms   Int?
   area        Decimal? @db.Decimal(10, 2) // Metros cuadrados
   parking     Int?     @default(0)
   floor       Int?     // Piso (para departamentos)
   
-  // Amenidades (opcional, se puede extender)
-  amenities   String[] // Array de strings: ["wifi", "piscina", "gym"]
+  // Características NUEVAS (dinámicas según propertyType)
+  // Ejemplo APARTMENT: {dormitorios: 3, baños: 2, expensas: 250, area: 120, areaCoworking: 30}
+  // Ejemplo HOUSE: {dormitorios: 4, baños: 3, area: 500, areaBuilt: 250, garage: 2}
+  // Ejemplo LAND: {area: 1000, frente: 50, fondo: 20, topografia: "plano"}
+  specifications Json? @default("{}")
+  
+  // Amenidades (ahora es array de IDs, validados contra propertyType)
+  // Ejemplo APARTMENT: ["wifi", "piscina", "gym", "ascensor"]
+  // Ejemplo LAND: ["aguaPotable", "electricidad", "accesoVial"]
+  amenities   String[] @default([])
   
   // Contacto del propietario
   contactPhone    String
@@ -132,6 +159,8 @@ model Property {
   @@index([propertyType])
   @@index([operationType])
   @@index([status])
+  @@index([postStatus])
+  @@index([currency])
   @@index([ownerId])
   @@map("properties")
 }
