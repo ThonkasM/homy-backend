@@ -137,5 +137,6 @@ export class UpdatePropertyDto {
 
     @IsEnum(PostStatus)
     @IsOptional()
+    @Transform(({ value }) => value || 'DRAFT')
     postStatus?: PostStatus;
 }

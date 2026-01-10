@@ -151,6 +151,7 @@ export class CreatePropertyWithImagesDto {
 
     @IsEnum(PostStatus)
     @IsOptional()
+    @Transform(({ value }) => value || 'DRAFT')
     postStatus?: PostStatus;
 
     // Los archivos se reciben como Express.Multer.File[]

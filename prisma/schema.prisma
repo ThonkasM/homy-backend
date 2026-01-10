@@ -107,7 +107,7 @@ model Property {
   propertyType   PropertyType
   operationType  OperationType
   status         PropertyStatus @default(AVAILABLE)
-  postStatus     PostStatus     @default(DRAFT)
+  postStatus     PostStatus     @default(PUBLISHED)
   
   // Ubicación
   latitude    Decimal  @db.Decimal(10, 8)
