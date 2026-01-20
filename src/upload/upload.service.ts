@@ -3,16 +3,35 @@ import { v4 as uuid } from 'uuid';
 import * as fs from 'fs';
 import * as path from 'path';
 import sharp from 'sharp';
+import { VideoProcessingService } from './video-processing.service';
+
+export interface UploadedMedia {
+    url: string;
+    thumbnailUrl?: string;
+    type: 'IMAGE' | 'VIDEO';
+    mimeType: string;
+    size: number;
+    duration?: number; // Solo para videos
+}
 
 @Injectable()
 export class UploadService {
     private readonly logger = new Logger('UploadService');
     private readonly propertiesDir = path.join(process.cwd(), 'uploads', 'properties');
     private readonly avatarsDir = path.join(process.cwd(), 'uploads', 'avatars');
+    private readonly videosDir = path.join(this.propertiesDir, 'videos');
+    private readonly imagesDir = path.join(this.propertiesDir, 'images');
+    private readonly thumbnailsDir = path.join(this.propertiesDir, 'thumbnails');
 
-    constructor() {
+    constructor(private videoProcessingService: VideoProcessingService) {
         // Crear directorios si no existen
-        [this.propertiesDir, this.avatarsDir].forEach((dir) => {
+        [
+            this.propertiesDir,
+            this.avatarsDir,
+            this.videosDir,
+            this.imagesDir,
+            this.thumbnailsDir,
+        ].forEach((dir) => {
             if (!fs.existsSync(dir)) {
                 fs.mkdirSync(dir, { recursive: true });
                 this.logger.log(`Directorio creado: ${dir}`);
@@ -21,52 +40,138 @@ export class UploadService {
     }
 
     /**
-     * Guardar archivos de imagen para propiedades
+     * Guardar archivos de media (imágenes y videos) para propiedades
      * @param files - Array de archivos de Express Multer
-     * @returns Array con rutas de las imágenes guardadas
+     * @returns Array con información de los archivos guardados
      */
-    async savePropertyImages(files: Express.Multer.File[]): Promise<string[]> {
+    async savePropertyMedia(files: Express.Multer.File[]): Promise<UploadedMedia[]> {
         if (!files || files.length === 0) {
-            throw new BadRequestException('No se proporcionaron imágenes');
+            throw new BadRequestException('No se proporcionaron archivos');
         }
 
         const maxFiles = 10;
         if (files.length > maxFiles) {
-            throw new BadRequestException(`Máximo ${maxFiles} imágenes permitidas`);
+            throw new BadRequestException(`Máximo ${maxFiles} archivos permitidos`);
         }
 
-        const savedPaths: string[] = [];
+        // Validar límite de videos (máximo 3)
+        const videoFiles = files.filter((f) => f.mimetype.startsWith('video/'));
+        const maxVideos = 3;
+        if (videoFiles.length > maxVideos) {
+            throw new BadRequestException(`Máximo ${maxVideos} videos permitidos`);
+        }
+
+        const savedMedia: UploadedMedia[] = [];
 
         for (const file of files) {
-            // Validar tipo de archivo
-            const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
-            if (!allowedMimes.includes(file.mimetype)) {
+            const isVideo = file.mimetype.startsWith('video/');
+            const isImage = file.mimetype.startsWith('image/');
+
+            if (!isVideo && !isImage) {
                 throw new BadRequestException(
-                    `Tipo de archivo no permitido: ${file.mimetype}. Solo JPEG, PNG y WebP`,
+                    `Tipo de archivo no permitido: ${file.mimetype}. Solo imágenes y videos`
                 );
             }
 
-            // Validar tamaño (máximo 5MB por imagen)
-            const maxSize = 5 * 1024 * 1024; // 5MB
-            if (file.size > maxSize) {
-                throw new BadRequestException(
-                    `Archivo muy grande. Máximo 5MB, recibido ${(file.size / 1024 / 1024).toFixed(2)}MB`,
-                );
+            if (isImage) {
+                const mediaInfo = await this.savePropertyImage(file);
+                savedMedia.push(mediaInfo);
+            } else if (isVideo) {
+                const mediaInfo = await this.savePropertyVideo(file);
+                savedMedia.push(mediaInfo);
             }
-
-            // Generar nombre único
-            const ext = path.extname(file.originalname);
-            const uniqueFilename = `${uuid()}${ext}`;
-            const filepath = path.join(this.propertiesDir, uniqueFilename);
-
-            // Comprimir y guardar imagen
-            await this.compressAndSaveImage(file.buffer, filepath);
-
-            // Guardar ruta relativa
-            savedPaths.push(`/uploads/properties/${uniqueFilename}`);
         }
 
-        return savedPaths;
+        return savedMedia;
+    }
+
+    /**
+     * Guardar imagen de propiedad
+     */
+    private async savePropertyImage(file: Express.Multer.File): Promise<UploadedMedia> {
+        // Validar tipo de archivo
+        const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
+        if (!allowedMimes.includes(file.mimetype)) {
+            throw new BadRequestException(
+                `Tipo de imagen no permitido: ${file.mimetype}. Solo JPEG, PNG y WebP`
+            );
+        }
+
+        // Validar tamaño (máximo 5MB por imagen)
+        const maxSize = 5 * 1024 * 1024; // 5MB
+        if (file.size > maxSize) {
+            throw new BadRequestException(
+                `Imagen muy grande. Máximo 5MB, recibido ${(file.size / 1024 / 1024).toFixed(2)}MB`
+            );
+        }
+
+        // Generar nombre único
+        const ext = path.extname(file.originalname);
+        const uniqueFilename = `${uuid()}${ext}`;
+        const filepath = path.join(this.imagesDir, uniqueFilename);
+
+        // Comprimir y guardar imagen
+        await this.compressAndSaveImage(file.buffer, filepath);
+
+        // Obtener tamaño del archivo final
+        const finalSize = fs.statSync(filepath).size;
+
+        return {
+            url: `/uploads/properties/images/${uniqueFilename}`,
+            type: 'IMAGE',
+            mimeType: file.mimetype,
+            size: finalSize,
+        };
+    }
+
+    /**
+     * Guardar video de propiedad
+     */
+    private async savePropertyVideo(file: Express.Multer.File): Promise<UploadedMedia> {
+        // Validar tipo de archivo
+        if (!this.videoProcessingService.isValidVideoFormat(file.mimetype)) {
+            throw new BadRequestException(
+                `Tipo de video no permitido: ${file.mimetype}. Solo MP4, MOV, AVI, WebM`
+            );
+        }
+
+        // Validar tamaño (máximo 100MB por video)
+        const maxSize = 100 * 1024 * 1024; // 100MB
+        if (file.size > maxSize) {
+            throw new BadRequestException(
+                `Video muy grande. Máximo 100MB, recibido ${(file.size / 1024 / 1024).toFixed(2)}MB`
+            );
+        }
+
+        // Generar nombre único (siempre guardamos como .mp4 después de procesar)
+        const uniqueFilename = `${uuid()}.mp4`;
+        const filepath = path.join(this.videosDir, uniqueFilename);
+
+        this.logger.log(`Procesando video: ${file.originalname} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+
+        // Procesar video: comprimir y generar thumbnail
+        const processed = await this.videoProcessingService.processVideo(file.buffer, filepath);
+
+        // Extraer nombre del thumbnail para la URL
+        const thumbnailFilename = path.basename(processed.thumbnailPath);
+
+        return {
+            url: `/uploads/properties/videos/${uniqueFilename}`, // Servir como archivo estático
+            thumbnailUrl: `/uploads/properties/thumbnails/${thumbnailFilename}`,
+            type: 'VIDEO',
+            mimeType: 'video/mp4', // Siempre MP4 después de procesar
+            size: processed.metadata.size,
+            duration: Math.round(processed.metadata.duration),
+        };
+    }
+
+    /**
+     * Guardar archivos de imagen para propiedades (LEGACY - mantener compatibilidad)
+     * @deprecated Usar savePropertyMedia en su lugar
+     */
+    async savePropertyImages(files: Express.Multer.File[]): Promise<string[]> {
+        const media = await this.savePropertyMedia(files);
+        return media.map((m) => m.url);
     }
 
     /**

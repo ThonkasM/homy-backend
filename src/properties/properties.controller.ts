@@ -42,27 +42,17 @@ export class PropertiesController {
 
     /**
      * POST /api/properties/with-images
-     * Crear una propiedad CON imágenes en un solo formulario multipart/form-data
+     * Crear una propiedad CON media (imágenes y/o videos)
      * Endpoint recomendado para el frontend
+     * 
+     * IMPORTANTE: El campo de archivos debe llamarse 'files' (no 'images')
+     * Soporta: JPG, PNG, WebP (máx 5MB) y MP4, MOV, AVI, WebM (máx 100MB)
+     * Límites: 10 archivos totales, máximo 3 videos
      */
     @Post('with-images')
     @UseGuards(JwtAuthGuard)
     @HttpCode(HttpStatus.CREATED)
-    @UseInterceptors(
-        FilesInterceptor('images', 10, {
-            storage: diskStorage({
-                destination: (req, file, cb) => {
-                    const uploadsDir = path.join(process.cwd(), 'uploads', 'properties');
-                    cb(null, uploadsDir);
-                },
-                filename: (req, file, cb) => {
-                    const ext = path.extname(file.originalname);
-                    const filename = `${uuid()}${ext}`;
-                    cb(null, filename);
-                },
-            }),
-        }),
-    )
+    @UseInterceptors(FilesInterceptor('files', 10)) // Ahora acepta 'files' y procesa en memoria
     async createWithImages(
         @Body() createPropertyDto: CreatePropertyDto,
         @UploadedFiles() files: Express.Multer.File[],

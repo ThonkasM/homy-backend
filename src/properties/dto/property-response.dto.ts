@@ -1,3 +1,5 @@
+import { PropertyMediaDto } from './property-media.dto';
+
 export class PropertyResponseDto {
     id: string;
     title: string;
@@ -25,4 +27,5 @@ export class PropertyResponseDto {
     ownerId: string;
     createdAt: Date;
     updatedAt: Date;
+    images?: PropertyMediaDto[]; // Renombrado de 'images' a 'media' pero manteniendo compatibilidad
 }

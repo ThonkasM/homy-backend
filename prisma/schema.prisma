@@ -151,7 +151,7 @@ model Property {
   deletedAt DateTime? // Soft delete
   
   // Relaciones
-  images    PropertyImage[]
+  images    PropertyMedia[]
   reviews   Review[]
   favorites Favorite[]
   
@@ -166,22 +166,33 @@ model Property {
 }
 
 // ============================================
-// IMÁGENES DE PROPIEDADES
+// MEDIA DE PROPIEDADES (IMÁGENES Y VIDEOS)
 // ============================================
 
-model PropertyImage {
-  id         String   @id @default(uuid())
-  url        String   // Ruta o URL de la imagen
-  order      Int      // Orden en el carrusel (1-10)
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+model PropertyMedia {
+  id          String    @id @default(uuid())
+  type        MediaType // Tipo de media: imagen o video
+  url         String    // Ruta o URL del archivo (imagen o video)
+  thumbnailUrl String?  // Thumbnail para videos (generado automáticamente)
+  order       Int       // Orden en el carrusel (1-10)
+  duration    Int?      // Duración en segundos (solo para videos)
+  size        Int?      // Tamaño del archivo en bytes
+  mimeType    String?   // Tipo MIME (image/jpeg, video/mp4, etc.)
   
   propertyId String
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   
   createdAt  DateTime @default(now())
   
-  @@unique([propertyId, order]) // No puede haber dos imágenes con el mismo orden
+  @@unique([propertyId, order]) // No puede haber dos medias con el mismo orden
   @@index([propertyId])
-  @@map("property_images")
+  @@index([type])
+  @@map("property_media")
 }
 
 // ============================================

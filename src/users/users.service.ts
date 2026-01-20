@@ -18,6 +18,7 @@ export class UsersService {
                 lastName: true,
                 email: true,
                 phone: true,
+                bio: true,        // ✅ Añadido: "Acerca de mí"
                 avatar: true,
                 createdAt: true,
                 properties: {
@@ -52,6 +53,7 @@ export class UsersService {
             lastName: user.lastName,
             email: user.email,
             phone: user.phone,
+            bio: user.bio,           // ✅ Añadido: "Acerca de mí"
             avatar: user.avatar,
             createdAt: user.createdAt,
             propertiesCount: user.properties.length,

@@ -48,7 +48,7 @@ export class AuthController {
         return await this.authService.getProfile(user.sub);
     }
 
-    /**
+    /**<<<<
      * PATCH /api/auth/profile
      * Actualizar el perfil del usuario autenticado
      */

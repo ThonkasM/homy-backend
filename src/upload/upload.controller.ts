@@ -1,15 +1,23 @@
 import {
     Controller,
     Post,
+    Get,
+    Param,
+    Req,
+    Res,
     UseGuards,
     UseInterceptors,
     UploadedFile,
     HttpCode,
     HttpStatus,
     BadRequestException,
+    NotFoundException,
     Logger,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import type { Request, Response } from 'express';
+import * as fs from 'fs';
+import * as path from 'path';
 import { UploadService } from './upload.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -99,5 +107,56 @@ export class UploadController {
             mimetype: file.mimetype,
             size: `${(file.size / 1024).toFixed(2)} KB`,
         };
+    }
+
+    /**
+     * GET /api/upload/video/:filename
+     * Streaming de video con soporte para Range requests (para seek/pause/play)
+     * Permite a los navegadores cargar videos de forma eficiente
+     */
+    @Get('video/:filename')
+    async streamVideo(
+        @Param('filename') filename: string,
+        @Req() req: Request,
+        @Res() res: Response,
+    ) {
+        // Sanitizar filename para evitar path traversal
+        const safeFilename = path.basename(filename);
+        const videoPath = path.join(process.cwd(), 'uploads', 'properties', 'videos', safeFilename);
+
+        // Verificar que el archivo existe
+        if (!fs.existsSync(videoPath)) {
+            throw new NotFoundException('Video no encontrado');
+        }
+
+        const stat = fs.statSync(videoPath);
+        const fileSize = stat.size;
+        const range = req.headers.range;
+
+        if (range) {
+            // Streaming con rango (permite seek)
+            const parts = range.replace(/bytes=/, '').split('-');
+            const start = parseInt(parts[0], 10);
+            const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+            const chunksize = end - start + 1;
+            const file = fs.createReadStream(videoPath, { start, end });
+
+            res.writeHead(206, {
+                'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+                'Accept-Ranges': 'bytes',
+                'Content-Length': chunksize,
+                'Content-Type': 'video/mp4',
+            });
+
+            file.pipe(res);
+        } else {
+            // Streaming completo (sin rango)
+            res.writeHead(200, {
+                'Content-Length': fileSize,
+                'Content-Type': 'video/mp4',
+            });
+
+            fs.createReadStream(videoPath).pipe(res);
+        }
     }
 }

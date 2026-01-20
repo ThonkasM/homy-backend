@@ -524,39 +524,40 @@ export class PropertiesService {
             },
         });
 
-        // Si hay archivos, crear registros en BD
-        // Los archivos ya están guardados en disco por multer's diskStorage
+        // Si hay archivos, procesarlos y crear registros en BD
         if (files && files.length > 0) {
             try {
-                // Mapear archivos a sus rutas públicas
-                // Los archivos ya están en uploads/properties/ gracias a diskStorage
-                const imagePaths = files.map(
-                    (file) => `/uploads/properties/${file.filename}`,
-                );
+                // Guardar archivos (imágenes y/o videos)
+                const mediaFiles = await this.uploadService.savePropertyMedia(files);
 
-                // Crear registros de imágenes en la BD
-                const propertyImages = await Promise.all(
-                    imagePaths.map((url, index) =>
-                        this.prisma.propertyImage.create({
+                // Crear registros de media en la BD
+                const propertyMedia = await Promise.all(
+                    mediaFiles.map((media, index) =>
+                        this.prisma.propertyMedia.create({
                             data: {
-                                url,
+                                url: media.url,
+                                thumbnailUrl: media.thumbnailUrl || null,
+                                type: media.type,
                                 order: index + 1,
+                                duration: media.duration || null,
+                                size: media.size || null,
+                                mimeType: media.mimeType || null,
                                 propertyId: property.id,
                             },
                         }),
                     ),
                 );
 
-                // Retornar propiedad con imágenes
+                // Retornar propiedad con media
                 return {
                     ...property,
-                    images: propertyImages,
+                    images: propertyMedia,
                     owner: {
                         id: userId,
                     },
                 };
             } catch (error) {
-                // Si algo falla en las imágenes, eliminar la propiedad creada
+                // Si algo falla en los archivos, eliminar la propiedad creada
                 await this.prisma.property.delete({
                     where: { id: property.id },
                 });
