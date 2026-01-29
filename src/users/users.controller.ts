@@ -5,10 +5,28 @@ import {
     Query,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
+import { SearchUserDto } from './dto/search-user.dto';
 
 @Controller('api/users')
 export class UsersController {
     constructor(private readonly usersService: UsersService) { }
+
+    /**
+     * GET /api/users
+     * Buscar usuarios por nombre, email o ciudad
+     */
+    @Get()
+    async searchUsers(
+        @Query() searchDto: SearchUserDto,
+        @Query('page') page: string = '1',
+        @Query('limit') limit: string = '10',
+    ) {
+        return await this.usersService.searchUsers(
+            searchDto,
+            parseInt(page),
+            parseInt(limit),
+        );
+    }
 
     /**
      * GET /api/users/:id

@@ -1,9 +1,102 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { SearchUserDto } from './dto/search-user.dto';
 
 @Injectable()
 export class UsersService {
     constructor(private prisma: PrismaService) { }
+
+    /**
+     * Buscar usuarios por nombre, email o ciudad
+     * Retorna usuarios públicos con estadísticas básicas
+     */
+    async searchUsers(searchDto: SearchUserDto, page = 1, limit = 10) {
+        const skip = (page - 1) * limit;
+
+        const where: any = {
+            deletedAt: null, // Solo usuarios activos
+        };
+
+        // Búsqueda por nombre o email
+        if (searchDto.search) {
+            where.OR = [
+                { firstName: { contains: searchDto.search, mode: 'insensitive' } },
+                { lastName: { contains: searchDto.search, mode: 'insensitive' } },
+                { email: { contains: searchDto.search, mode: 'insensitive' } },
+            ];
+        }
+
+        const [users, total] = await Promise.all([
+            this.prisma.user.findMany({
+                where,
+                skip,
+                take: limit,
+                select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    email: true,
+                    phone: true,
+                    bio: true,
+                    avatar: true,
+                    createdAt: true,
+                    properties: {
+                        where: {
+                            deletedAt: null,
+                            postStatus: 'PUBLISHED' // Solo contar publicaciones publicadas
+                        },
+                        select: { id: true },
+                    },
+                },
+                orderBy: { createdAt: 'desc' },
+            }),
+            this.prisma.user.count({ where }),
+        ]);
+
+        // Obtener calificación promedio para cada usuario
+        const usersWithStats = await Promise.all(
+            users.map(async (user) => {
+                const reviews = await this.prisma.review.findMany({
+                    where: {
+                        property: {
+                            ownerId: user.id,
+                        },
+                    },
+                    select: {
+                        rating: true,
+                    },
+                });
+
+                const averageRating = reviews.length > 0
+                    ? parseFloat((reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1))
+                    : null;
+
+                return {
+                    id: user.id,
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                    email: user.email,
+                    phone: user.phone,
+                    bio: user.bio,
+                    avatar: user.avatar,
+                    createdAt: user.createdAt,
+                    propertiesCount: user.properties.length,
+                    reviewsCount: reviews.length,
+                    averageRating,
+                };
+            }),
+        );
+
+        return {
+            users: usersWithStats,
+            pagination: {
+                total,
+                page,
+                limit,
+                pages: Math.ceil(total / limit),
+            },
+        };
+    }
 
     /**
      * Obtener el perfil público de un usuario

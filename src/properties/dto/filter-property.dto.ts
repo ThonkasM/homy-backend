@@ -33,6 +33,16 @@ enum PostStatus {
     ARCHIVED = 'ARCHIVED',
 }
 
+enum Currency {
+    BOB = 'BOB',
+    USD = 'USD',
+    ARS = 'ARS',
+    PEN = 'PEN',
+    CLP = 'CLP',
+    MXN = 'MXN',
+    COP = 'COP',
+}
+
 export class FilterPropertyDto {
     @IsEnum(PropertyType)
     @IsOptional()
@@ -49,6 +59,136 @@ export class FilterPropertyDto {
     @IsEnum(PostStatus)
     @IsOptional()
     postStatus?: PostStatus;
+
+    @IsEnum(Currency)
+    @IsOptional()
+    currency?: Currency;
+
+    @IsString()
+    @IsOptional()
+    search?: string;
+
+    @IsArray()
+    @IsOptional()
+    @IsString({ each: true })
+    amenities?: string[];
+
+    // ========================================
+    // FILTROS PARA SPECIFICATIONS (nuevo sistema dinámico)
+    // ========================================
+
+    // Dormitorios
+    @IsNumber()
+    @IsOptional()
+    @Type(() => Number)
+    dormitorios_min?: number;
+
+    @IsNumber()
+    @IsOptional()
+    @Type(() => Number)
+    dormitorios_max?: number;
+
+    @IsNumber()
+    @IsOptional()
+    @Type(() => Number)
+    dormitorios?: number;
+
+    // Baños
+    @IsNumber()
+    @IsOptional()
+    @Type(() => Number)
+    baños_min?: number;
+
+    @IsNumber()
+    @IsOptional()
+    @Type(() => Number)
+    baños_max?: number;
+
+    @IsNumber()
+    @IsOptional()
+    @Type(() => Number)
+    baños?: number;
+
+    // Área
+    @IsNumber()
+    @IsOptional()
+    @Type(() => Number)
+    area_min?: number;
+
+    @IsNumber()
+    @IsOptional()
+    @Type(() => Number)
+    area_max?: number;
+
+    // Área construida
+    @IsNumber()
+    @IsOptional()
+    @Type(() => Number)
+    areaBuilt_min?: number;
+
+    @IsNumber()
+    @IsOptional()
+    @Type(() => Number)
+    areaBuilt_max?: number;
+
+    // Garage/Estacionamiento
+    @IsNumber()
+    @IsOptional()
+    @Type(() => Number)
+    garage_min?: number;
+
+    @IsNumber()
+    @IsOptional()
+    @Type(() => Number)
+    estacionamiento_min?: number;
+
+    // Expensas
+    @IsNumber()
+    @IsOptional()
+    @Type(() => Number)
+    expensas_min?: number;
+
+    @IsNumber()
+    @IsOptional()
+    @Type(() => Number)
+    expensas_max?: number;
+
+    // Piso
+    @IsNumber()
+    @IsOptional()
+    @Type(() => Number)
+    piso_min?: number;
+
+    @IsNumber()
+    @IsOptional()
+    @Type(() => Number)
+    piso_max?: number;
+
+    // Campos booleanos comunes
+    @IsOptional()
+    @Type(() => Boolean)
+    jardin?: boolean;
+
+    @IsOptional()
+    @Type(() => Boolean)
+    patio?: boolean;
+
+    @IsOptional()
+    @Type(() => Boolean)
+    balcon?: boolean;
+
+    @IsOptional()
+    @Type(() => Boolean)
+    esquina?: boolean;
+
+    // Topografía (para terrenos)
+    @IsString()
+    @IsOptional()
+    topografia?: string;
+
+    // ========================================
+    // FILTROS GENERALES
+    // ========================================
 
     @IsNumber()
     @IsOptional()

@@ -159,7 +159,7 @@ export class PropertiesService {
      * Obtener todas las propiedades (con filtros opcionales)
      * Solo devuelve propiedades PUBLICADAS
      */
-    async findAll(filters?: FilterPropertyDto, page = 1, limit = 10) {
+    async findAll(filters?: FilterPropertyDto, page = 1, limit = 5) {
         const skip = (page - 1) * limit;
 
         const where: any = {
@@ -177,11 +177,254 @@ export class PropertiesService {
         if (filters?.status) {
             where.status = filters.status;
         }
+        if (filters?.currency) {
+            where.currency = filters.currency;
+        }
+
+        // Búsqueda por título o descripción
+        if (filters?.search) {
+            where.OR = [
+                { title: { contains: filters.search, mode: 'insensitive' } },
+                { description: { contains: filters.search, mode: 'insensitive' } },
+                { address: { contains: filters.search, mode: 'insensitive' } },
+            ];
+        }
+
+        // Filtro por ubicación
+        if (filters?.city) {
+            where.city = { contains: filters.city, mode: 'insensitive' };
+        }
+        if (filters?.state) {
+            where.state = { contains: filters.state, mode: 'insensitive' };
+        }
+
+        // Filtro por amenidades (debe contener TODAS las amenidades especificadas)
+        if (filters?.amenities && filters.amenities.length > 0) {
+            where.amenities = { hasEvery: filters.amenities };
+        }
+
+        // ========================================
+        // FILTROS PARA SPECIFICATIONS (nuevo sistema dinámico)
+        // ========================================
+        const specFilters: any[] = [];
+
+        // Dormitorios
+        if (filters?.dormitorios !== undefined) {
+            specFilters.push({
+                specifications: {
+                    path: ['dormitorios'],
+                    equals: filters.dormitorios,
+                },
+            });
+        }
+        if (filters?.dormitorios_min !== undefined) {
+            specFilters.push({
+                specifications: {
+                    path: ['dormitorios'],
+                    gte: filters.dormitorios_min,
+                },
+            });
+        }
+        if (filters?.dormitorios_max !== undefined) {
+            specFilters.push({
+                specifications: {
+                    path: ['dormitorios'],
+                    lte: filters.dormitorios_max,
+                },
+            });
+        }
+
+        // Baños
+        if (filters?.baños !== undefined) {
+            specFilters.push({
+                specifications: {
+                    path: ['baños'],
+                    equals: filters.baños,
+                },
+            });
+        }
+        if (filters?.baños_min !== undefined) {
+            specFilters.push({
+                specifications: {
+                    path: ['baños'],
+                    gte: filters.baños_min,
+                },
+            });
+        }
+        if (filters?.baños_max !== undefined) {
+            specFilters.push({
+                specifications: {
+                    path: ['baños'],
+                    lte: filters.baños_max,
+                },
+            });
+        }
+
+        // Área
+        if (filters?.area_min !== undefined) {
+            specFilters.push({
+                specifications: {
+                    path: ['area'],
+                    gte: filters.area_min,
+                },
+            });
+        }
+        if (filters?.area_max !== undefined) {
+            specFilters.push({
+                specifications: {
+                    path: ['area'],
+                    lte: filters.area_max,
+                },
+            });
+        }
+
+        // Área construida
+        if (filters?.areaBuilt_min !== undefined) {
+            specFilters.push({
+                specifications: {
+                    path: ['areaBuilt'],
+                    gte: filters.areaBuilt_min,
+                },
+            });
+        }
+        if (filters?.areaBuilt_max !== undefined) {
+            specFilters.push({
+                specifications: {
+                    path: ['areaBuilt'],
+                    lte: filters.areaBuilt_max,
+                },
+            });
+        }
+
+        // Garage
+        if (filters?.garage_min !== undefined) {
+            specFilters.push({
+                specifications: {
+                    path: ['garage'],
+                    gte: filters.garage_min,
+                },
+            });
+        }
+
+        // Estacionamiento
+        if (filters?.estacionamiento_min !== undefined) {
+            specFilters.push({
+                specifications: {
+                    path: ['estacionamiento'],
+                    gte: filters.estacionamiento_min,
+                },
+            });
+        }
+
+        // Expensas
+        if (filters?.expensas_min !== undefined) {
+            specFilters.push({
+                specifications: {
+                    path: ['expensas'],
+                    gte: filters.expensas_min,
+                },
+            });
+        }
+        if (filters?.expensas_max !== undefined) {
+            specFilters.push({
+                specifications: {
+                    path: ['expensas'],
+                    lte: filters.expensas_max,
+                },
+            });
+        }
+
+        // Piso
+        if (filters?.piso_min !== undefined) {
+            specFilters.push({
+                specifications: {
+                    path: ['piso'],
+                    gte: filters.piso_min,
+                },
+            });
+        }
+        if (filters?.piso_max !== undefined) {
+            specFilters.push({
+                specifications: {
+                    path: ['piso'],
+                    lte: filters.piso_max,
+                },
+            });
+        }
+
+        // Campos booleanos
+        if (filters?.jardin !== undefined) {
+            specFilters.push({
+                specifications: {
+                    path: ['jardin'],
+                    equals: filters.jardin,
+                },
+            });
+        }
+        if (filters?.patio !== undefined) {
+            specFilters.push({
+                specifications: {
+                    path: ['patio'],
+                    equals: filters.patio,
+                },
+            });
+        }
+        if (filters?.balcon !== undefined) {
+            specFilters.push({
+                specifications: {
+                    path: ['balcon'],
+                    equals: filters.balcon,
+                },
+            });
+        }
+        if (filters?.esquina !== undefined) {
+            specFilters.push({
+                specifications: {
+                    path: ['esquina'],
+                    equals: filters.esquina,
+                },
+            });
+        }
+
+        // Topografía
+        if (filters?.topografia) {
+            specFilters.push({
+                specifications: {
+                    path: ['topografia'],
+                    equals: filters.topografia,
+                },
+            });
+        }
+
+        // Aplicar filtros de specifications si hay alguno
+        if (specFilters.length > 0) {
+            where.AND = specFilters;
+        }
+
+        // Filtro por características legacy (para compatibilidad con datos antiguos)
+        if (filters?.bedrooms) {
+            where.bedrooms = filters.bedrooms;
+        }
+        if (filters?.bathrooms) {
+            where.bathrooms = filters.bathrooms;
+        }
+
         if (filters?.minPrice) {
             where.price = { gte: filters.minPrice };
         }
         if (filters?.maxPrice) {
             where.price = { ...where.price, lte: filters.maxPrice };
+        }
+
+        // Configurar ordenamiento dinámico
+        let orderBy: any = { createdAt: 'desc' }; // Por defecto, más recientes primero
+
+        if (filters?.sortBy) {
+            const validSortFields = ['price', 'createdAt', 'title', 'area'];
+            if (validSortFields.includes(filters.sortBy)) {
+                const sortOrder = filters.sortOrder === 'asc' ? 'asc' : 'desc';
+                orderBy = { [filters.sortBy]: sortOrder };
+            }
         }
 
         const [properties, total] = await Promise.all([
@@ -190,18 +433,27 @@ export class PropertiesService {
                 skip,
                 take: limit,
                 include: {
-                    images: true,
+                    // ✅ Optimización: Solo la primera imagen para el feed/cards
+                    images: {
+                        take: 1, // Solo 1 imagen
+                        orderBy: { order: 'asc' }, // La primera según orden
+                        select: {
+                            id: true,
+                            url: true, // Solo URL necesaria
+                            type: true, // Para distinguir IMAGE/VIDEO si es necesario
+                        },
+                    },
                     owner: {
                         select: {
                             id: true,
                             firstName: true,
                             lastName: true,
                             avatar: true,
-                            phone: true,
+                            // ❌ phone removido - no se usa en las cards
                         },
                     },
                 },
-                orderBy: { createdAt: 'desc' },
+                orderBy,
             }),
             this.prisma.property.count({ where }),
         ]);
@@ -312,6 +564,185 @@ export class PropertiesService {
 
         // Normalizar respuesta
         return this.normalizePropertyData(updatedProperty);
+    }
+
+    /**
+     * Actualizar propiedad Y agregar nuevos archivos multimedia
+     * Los archivos nuevos se AGREGAN a los existentes
+     */
+    async updateWithMedia(
+        id: string,
+        updatePropertyDto: UpdatePropertyDto,
+        userId: string,
+        files?: Express.Multer.File[],
+    ) {
+        // Primero actualizar los datos de la propiedad (si se proporcionan)
+        let updatedProperty = await this.update(id, updatePropertyDto, userId);
+
+        // Si hay archivos, procesarlos y agregarlos
+        if (files && files.length > 0) {
+            // Contar media existente
+            const existingMedia = await this.prisma.propertyMedia.count({
+                where: { propertyId: id },
+            });
+
+            // Validar límite total (10 archivos máximo)
+            const maxFiles = 10;
+            if (existingMedia + files.length > maxFiles) {
+                throw new BadRequestException(
+                    `Máximo ${maxFiles} archivos por propiedad. Tienes ${existingMedia}, intentas agregar ${files.length}`,
+                );
+            }
+
+            // Procesar y guardar nuevos archivos
+            const mediaArray = await this.uploadService.savePropertyMedia(files);
+
+            // Calcular el siguiente order disponible
+            const maxOrder = await this.prisma.propertyMedia.findFirst({
+                where: { propertyId: id },
+                orderBy: { order: 'desc' },
+                select: { order: true },
+            });
+            const nextOrder = (maxOrder?.order ?? -1) + 1;
+
+            // Crear registros en base de datos para cada archivo
+            await Promise.all(
+                mediaArray.map((media, index) =>
+                    this.prisma.propertyMedia.create({
+                        data: {
+                            propertyId: id,
+                            type: media.type,
+                            url: media.url,
+                            thumbnailUrl: media.thumbnailUrl,
+                            order: nextOrder + index,
+                            mimeType: media.mimeType,
+                            size: media.size,
+                            duration: media.duration,
+                        },
+                    }),
+                ),
+            );
+
+            // Obtener propiedad actualizada con todos los media
+            updatedProperty = await this.prisma.property.findUnique({
+                where: { id },
+                include: {
+                    images: {
+                        orderBy: { order: 'asc' },
+                    },
+                    owner: {
+                        select: {
+                            id: true,
+                            firstName: true,
+                            lastName: true,
+                            avatar: true,
+                        },
+                    },
+                },
+            });
+        }
+
+        return this.normalizePropertyData(updatedProperty);
+    }
+
+    /**
+     * Eliminar un archivo específico de una propiedad
+     */
+    async deletePropertyMedia(propertyId: string, mediaId: string, userId: string) {
+        // Verificar propiedad y permisos
+        const property = await this.prisma.property.findUnique({
+            where: { id: propertyId },
+        });
+
+        if (!property) {
+            throw new NotFoundException('Propiedad no encontrada');
+        }
+
+        if (property.ownerId !== userId) {
+            throw new ForbiddenException('No tienes permisos para modificar esta propiedad');
+        }
+
+        // Buscar el archivo media
+        const media = await this.prisma.propertyMedia.findUnique({
+            where: { id: mediaId },
+        });
+
+        if (!media || media.propertyId !== propertyId) {
+            throw new NotFoundException('Archivo no encontrado en esta propiedad');
+        }
+
+        // Eliminar archivo físico del servidor
+        this.uploadService.deleteImage(media.url);
+
+        // Si es video, eliminar también el thumbnail
+        if (media.type === 'VIDEO' && media.thumbnailUrl) {
+            this.uploadService.deleteImage(media.thumbnailUrl);
+        }
+
+        // Eliminar registro de base de datos
+        await this.prisma.propertyMedia.delete({
+            where: { id: mediaId },
+        });
+
+        return {
+            message: 'Archivo eliminado exitosamente',
+            deletedMedia: {
+                id: media.id,
+                type: media.type,
+                url: media.url,
+            },
+        };
+    }
+
+    /**
+     * Reordenar archivos multimedia de una propiedad
+     */
+    async reorderPropertyMedia(
+        propertyId: string,
+        mediaOrder: Array<{ id: string; order: number }>,
+        userId: string,
+    ) {
+        // Verificar propiedad y permisos
+        const property = await this.prisma.property.findUnique({
+            where: { id: propertyId },
+        });
+
+        if (!property) {
+            throw new NotFoundException('Propiedad no encontrada');
+        }
+
+        if (property.ownerId !== userId) {
+            throw new ForbiddenException('No tienes permisos para modificar esta propiedad');
+        }
+
+        // Actualizar order de cada archivo en paralelo
+        await Promise.all(
+            mediaOrder.map((item) =>
+                this.prisma.propertyMedia.update({
+                    where: { id: item.id, propertyId }, // Validar que pertenece a esta propiedad
+                    data: { order: item.order },
+                }),
+            ),
+        );
+
+        // Retornar propiedad actualizada
+        const updatedProperty = await this.prisma.property.findUnique({
+            where: { id: propertyId },
+            include: {
+                images: {
+                    orderBy: { order: 'asc' },
+                },
+            },
+        });
+
+        if (!updatedProperty) {
+            throw new NotFoundException('Error obteniendo propiedad actualizada');
+        }
+
+        return {
+            message: 'Orden actualizado exitosamente',
+            media: updatedProperty.images,
+        };
     }
 
     /**

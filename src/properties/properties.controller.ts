@@ -90,7 +90,7 @@ export class PropertiesController {
     async findAll(
         @Query() filters: FilterPropertyDto,
         @Query('page') page: string = '1',
-        @Query('limit') limit: string = '10',
+        @Query('limit') limit: string = '5',
     ) {
         return await this.propertiesService.findAll(
             filters,
@@ -155,6 +155,69 @@ export class PropertiesController {
         @CurrentUser() user: any,
     ) {
         return await this.propertiesService.update(id, updatePropertyDto, user.sub);
+    }
+
+    /**
+     * PATCH /api/properties/:id/with-media
+     * Actualizar propiedad Y agregar nuevos archivos (imágenes/videos)
+     * Los archivos nuevos se AGREGAN a los existentes (no se reemplazan)
+     * Para eliminar archivos, usar DELETE /api/properties/:id/media/:mediaId
+     * 
+     * Body debe incluir campos de UpdatePropertyDto + archivos
+     * Campo de archivos: 'files' (multipart/form-data)
+     */
+    @Patch(':id/with-media')
+    @UseGuards(JwtAuthGuard)
+    @HttpCode(HttpStatus.OK)
+    @UseInterceptors(FilesInterceptor('files', 10))
+    async updateWithMedia(
+        @Param('id') id: string,
+        @Body() updatePropertyDto: UpdatePropertyDto,
+        @UploadedFiles() files: Express.Multer.File[],
+        @CurrentUser() user: any,
+    ) {
+        return await this.propertiesService.updateWithMedia(
+            id,
+            updatePropertyDto,
+            user.sub,
+            files,
+        );
+    }
+
+    /**
+     * DELETE /api/properties/:id/media/:mediaId
+     * Eliminar un archivo específico (imagen o video) de una propiedad
+     * También elimina el thumbnail si es un video
+     */
+    @Delete(':id/media/:mediaId')
+    @UseGuards(JwtAuthGuard)
+    @HttpCode(HttpStatus.OK)
+    async deleteMedia(
+        @Param('id') propertyId: string,
+        @Param('mediaId') mediaId: string,
+        @CurrentUser() user: any,
+    ) {
+        return await this.propertiesService.deletePropertyMedia(propertyId, mediaId, user.sub);
+    }
+
+    /**
+     * PATCH /api/properties/:id/media/reorder
+     * Reordenar los archivos de media de una propiedad
+     * Body: { mediaOrder: [{ id: 'uuid1', order: 0 }, { id: 'uuid2', order: 1 }] }
+     */
+    @Patch(':id/media/reorder')
+    @UseGuards(JwtAuthGuard)
+    @HttpCode(HttpStatus.OK)
+    async reorderMedia(
+        @Param('id') propertyId: string,
+        @Body() body: { mediaOrder: Array<{ id: string; order: number }> },
+        @CurrentUser() user: any,
+    ) {
+        return await this.propertiesService.reorderPropertyMedia(
+            propertyId,
+            body.mediaOrder,
+            user.sub,
+        );
     }
 
     /**

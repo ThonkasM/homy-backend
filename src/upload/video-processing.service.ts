@@ -48,8 +48,16 @@ export class VideoProcessingService {
 
         // Generar ruta del thumbnail en la carpeta correcta (thumbnails, no videos)
         const videoFilename = path.basename(outputPath, path.extname(outputPath)); // xyz789
-        const thumbnailsDir = outputPath.replace('/videos/', '/thumbnails/').replace(path.basename(outputPath), '');
+
+        // FIX: Usar path.dirname() y path.join() en vez de string replace (funciona en Windows + Linux)
+        const videoDir = path.dirname(outputPath); // Obtener directorio del video
+        const thumbnailsDir = path.join(path.dirname(videoDir), 'thumbnails'); // Subir un nivel y entrar a /thumbnails
         const thumbnailPath = path.join(thumbnailsDir, `${videoFilename}_thumb.jpg`);
+
+        // Crear directorio de thumbnails si no existe (por si acaso)
+        if (!fs.existsSync(thumbnailsDir)) {
+            fs.mkdirSync(thumbnailsDir, { recursive: true });
+        }
 
         try {
             // Guardar temporalmente el archivo de entrada
