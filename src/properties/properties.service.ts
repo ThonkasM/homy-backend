@@ -159,7 +159,7 @@ export class PropertiesService {
      * Obtener todas las propiedades (con filtros opcionales)
      * Solo devuelve propiedades PUBLICADAS
      */
-    async findAll(filters?: FilterPropertyDto, page = 1, limit = 5) {
+    async findAll(filters?: FilterPropertyDto, page = 1, limit = 15) {
         const skip = (page - 1) * limit;
 
         const where: any = {

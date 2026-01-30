@@ -90,7 +90,7 @@ export class PropertiesController {
     async findAll(
         @Query() filters: FilterPropertyDto,
         @Query('page') page: string = '1',
-        @Query('limit') limit: string = '5',
+        @Query('limit') limit: string = '15',
     ) {
         return await this.propertiesService.findAll(
             filters,
